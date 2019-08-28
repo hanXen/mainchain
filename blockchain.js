@@ -13,13 +13,13 @@ class Block{
 }
 
 class Transaction {
-    constructor(tx_type, PDid, h_enc_PD, h_agreement, access_list,  txn_nounce) {
+    constructor(tx_type, tx_nonce, add1, add2) {
         this.tx_type = tx_type;
-        this.PDid = PDid;
-        this.h_enc_PD = h_enc_PD;
-        this.h_agreement = h_agreement;
-        this.access_list = access_list;
-        this.txn_nounce = txn_nounce;
+        this.tx_nonce = tx_nonce;
+        this.add1 = add1;
+        this.add2 = add2;
+        this.signature = null;
+        this.index = null;
     }
 }
 

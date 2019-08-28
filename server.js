@@ -2,6 +2,7 @@
 var express = require("express");
 var bodyParser = require("body-parser");
 var WebSocket = require("ws");
+var ethGSV = require('./signing');
 
 const {Blockchain,Transaction} = require('./blockchain');
 
@@ -18,24 +19,39 @@ var MessageType = {
     RESPONSE_BLOCKCHAIN: 2
 };
 
-var newTransaction = (tx_type, PDid, h_enc_PD, h_agreement, access_list) => {
+var newTransaction = (tx_type, add1, add2, k) => {
     const nonce = 1;
-    const tx = new Transaction(tx_type, PDid, h_enc_PD, h_agreement, access_list, nonce);
+    const tx = new Transaction(tx_type, nonce, add1, add2);
+    var s = ethGSV.sign(JSON.stringify(tx), k.privateKey);
+    tx.signature = s;
+    console.log(s);
     blockchain.pendingTransactions.push(tx);
 }
 
 
 var initHTTPServer = () => {
     var app = express();
+    var k= ethGSV.generateKeyPair();
+    console.log(k);
     app.use(bodyParser.json());
 
     app.get('/blocks',(req, res) => res.send(JSON.stringify(blockchain.chain)));
+
     app.get('/mineBlock', (req, res) => {
         res.sendFile(__dirname + "/mine.html");
     });
     app.post('/mineBlock', (req, res) => {
         //console.log(req.body.data);
         console.log(`data: ${blockchain.pendingTransactions}`);
+        blockchain.pendingTransactions.forEach((tx) => {
+            var tx_data =  JSON.parse(JSON.stringify(tx));
+            tx_data.signature = null;
+            tx_data.index = null;
+            if(!ethGSV.verify(JSON.stringify(tx_data), tx.signature, k.address)) {
+                console.log('false');
+                blockchain.pendingTransactions.pop(tx);
+            }
+        });
         var newBlock = blockchain.generateNextBlock(blockchain.pendingTransactions);
         //var newBlock = blockchain.generateNextBlock(req.body.data);
 
@@ -63,7 +79,7 @@ var initHTTPServer = () => {
         const tx = req.body;
         //required = ['tx_type', 'PDid', 'h_enc_PD', 'h_agreement', 'access_list'];
         
-        newTransaction(tx.tx_type, tx.PDid, tx.h_enc_PD, tx.h_agreement, tx.access_list);
+        newTransaction(tx.tx_type, tx.add1, tx.add2, k);
         res.send(`tx will append at ${blockchain.chain.length} block\n`);
     });
 
@@ -164,4 +180,3 @@ connectToPeers(initialPeers);
 initHTTPServer();
 initP2PServer();
 
-console.log(blockchain.chain);
